@@ -1,32 +1,62 @@
-// This defines the entire assembly line.
 pipeline {
-    // Tell Jenkins to use any available "robotic arm" (agent) to run this job.
     agent any
 
-    // This block defines all the sequential stages of our assembly line.
+    // Define variables that we will use throughout the pipeline.
+    environment {
+        PROJECT_ID = 'ultra-sunset-446519-i4'
+        REPO_NAME = 'my-devops-re-repo' // The name of your Artifact Registry repo
+        IMAGE_NAME = 'my-first-app'
+        LOCATION = 'asia-south1'
+    }
+
     stages {
-        // Stage 1: Checkout Code
         stage('Checkout') {
             steps {
-                // This step just prints a message to the console.
-                echo 'Checking out code from version control...'
-                // Later, we will add the actual 'git checkout' command here.
+                // This is a real Jenkins step to checkout the code.
+                checkout scm
             }
         }
 
-        // Stage 2: Build
-        stage('Build') {
+        // We'll add a separate app directory with our Python files to this repo later.
+        // For now, this stage will create them so the build works.
+        stage('Prepare Build Files') {
             steps {
-                echo 'Building the application...'
-                // Later, this is where we would run 'docker build'.
+                sh '''
+                    mkdir -p app
+                    echo 'from flask import Flask' > app/app.py
+                    echo 'app = Flask(__name__)' >> app/app.py
+                    echo "@app.route('/')" >> app/app.py
+                    echo 'def hello(): return "Hello from Jenkins Pipeline!"' >> app/app.py
+                    echo 'if __name__ == "__main__": app.run(host="0.0.0.0", port=8080)' >> app/app.py
+
+                    echo 'Flask' > app/requirements.txt
+
+                    echo 'FROM python:3.9-slim' > app/Dockerfile
+                    echo 'WORKDIR /app' >> app/Dockerfile
+                    echo 'COPY requirements.txt .' >> app/Dockerfile
+                    echo 'RUN pip install -r requirements.txt' >> app/Dockerfile
+                    echo 'COPY . .' >> app/Dockerfile
+                    echo 'CMD ["python", "app.py"]' >> app/Dockerfile
+                '''
             }
         }
 
-        // Stage 3: Test
-        stage('Test') {
+        stage('Build and Push Image') {
             steps {
-                echo 'Running automated tests...'
-                // Later, this is where we would run our unit tests.
+                // This is the magic. It tells Jenkins to use the Google credentials
+                // we stored earlier for all the commands inside this block.
+                withGoogleServiceAccount(credentialsId: env.PROJECT_ID) {
+                    
+                    // First, configure Docker to authenticate with gcloud.
+                    sh "gcloud auth configure-docker ${LOCATION}-docker.pkg.dev --quiet"
+                    
+                    // Now, build the Docker image.
+                    // We will tag it with the unique Jenkins BUILD_NUMBER.
+                    sh "docker build -t ${LOCATION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${IMAGE_NAME}:${BUILD_NUMBER} ./app"
+                    
+                    // Finally, push the image to the registry.
+                    sh "docker push ${LOCATION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${IMAGE_NAME}:${BUILD_NUMBER}"
+                }
             }
         }
     }
