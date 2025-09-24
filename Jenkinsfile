@@ -38,27 +38,17 @@ pipeline {
 
         stage('Build and Push Image') {
             steps {
-                // Use the 'string' provider for "Secret text" credentials.
-                // This puts the entire JSON key into the GCP_KEY_TEXT environment variable.
                 withCredentials([string(credentialsId: GCP_CREDENTIAL_ID, variable: 'GCP_KEY_TEXT')]) {
                     
-                    // The gcloud command needs a file, not text. So we write the text to a temporary file.
-                    // This is a standard, robust pattern.
-                    sh "echo '${GCP_KEY_TEXT}' > /tmp/gcp-key.json"
+                    // THE FIX: Use the robust 'writeFile' step instead of 'echo'.
+                    // This writes the variable to a file without any shell corruption.
+                    writeFile(file: '/tmp/gcp-key.json', text: GCP_KEY_TEXT)
 
-                    // Step 1: Explicitly activate the Service Account using the temporary key file.
+                    // The rest of the steps are the same and will now work.
                     sh "gcloud auth activate-service-account --key-file=/tmp/gcp-key.json"
-
-                    // Step 2: Configure Docker to use the now-activated gcloud credentials.
                     sh "gcloud auth configure-docker ${LOCATION}-docker.pkg.dev --quiet"
-                    
-                    // Step 3: Build the Docker image.
                     sh "docker build -t ${LOCATION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${IMAGE_NAME}:${BUILD_NUMBER} ./app"
-                    
-                    // Step 4: Push the image to the registry.
                     sh "docker push ${LOCATION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${IMAGE_NAME}:${BUILD_NUMBER}"
-
-                    // Step 5: Clean up the temporary secret file.
                     sh "rm /tmp/gcp-key.json"
                 }
             }
