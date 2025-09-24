@@ -2,11 +2,10 @@ pipeline {
     agent any
 
     environment {
-        PROJECT_ID = 'ultra-sunset-446519-i4' // Hardcode your Project ID
+        PROJECT_ID = 'ultra-sunset-446519-i4'
         REPO_NAME = 'my-devops-re-repo'
         IMAGE_NAME = 'my-first-app'
         LOCATION = 'asia-south1'
-        // This is the ID you gave your credential in the Jenkins UI
         GCP_CREDENTIAL_ID = 'ultra-sunset-446519-i4' 
     }
 
@@ -19,7 +18,6 @@ pipeline {
 
         stage('Prepare Build Files') {
             steps {
-                // This stage is the same as before, creating the app files
                 sh '''
                     mkdir -p app
                     echo 'from flask import Flask' > app/app.py
@@ -40,14 +38,16 @@ pipeline {
 
         stage('Build and Push Image') {
             steps {
-                // --- THIS IS THE NEW, ROBUST METHOD ---
-                // Use the standard 'withCredentials' step to securely access our key file.
-                // It will make the file available at the path stored in the 'GCP_KEY' variable.
-                withCredentials([file(credentialsId: GCP_CREDENTIAL_ID, variable: 'GCP_KEY')]) {
+                // Use the 'string' provider for "Secret text" credentials.
+                // This puts the entire JSON key into the GCP_KEY_TEXT environment variable.
+                withCredentials([string(credentialsId: GCP_CREDENTIAL_ID, variable: 'GCP_KEY_TEXT')]) {
                     
-                    // Step 1: Explicitly activate the Service Account using the key file.
-                    // This is the "brute force" authentication.
-                    sh "gcloud auth activate-service-account --key-file=${GCP_KEY}"
+                    // The gcloud command needs a file, not text. So we write the text to a temporary file.
+                    // This is a standard, robust pattern.
+                    sh "echo '${GCP_KEY_TEXT}' > /tmp/gcp-key.json"
+
+                    // Step 1: Explicitly activate the Service Account using the temporary key file.
+                    sh "gcloud auth activate-service-account --key-file=/tmp/gcp-key.json"
 
                     // Step 2: Configure Docker to use the now-activated gcloud credentials.
                     sh "gcloud auth configure-docker ${LOCATION}-docker.pkg.dev --quiet"
@@ -57,6 +57,9 @@ pipeline {
                     
                     // Step 4: Push the image to the registry.
                     sh "docker push ${LOCATION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${IMAGE_NAME}:${BUILD_NUMBER}"
+
+                    // Step 5: Clean up the temporary secret file.
+                    sh "rm /tmp/gcp-key.json"
                 }
             }
         }
