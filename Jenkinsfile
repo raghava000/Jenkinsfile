@@ -53,12 +53,17 @@ pipeline {
             }
         }
 
-        stage('Deploy to GKE') {
+         stage('Deploy to GKE') {
             steps {
                 withCredentials([string(credentialsId: GCP_CREDENTIAL_ID, variable: 'GCP_KEY_TEXT')]) {
+                    
+                    // --- THE FIX IS THIS ONE LINE ---
+                    // Re-create the key file for this stage's scope.
+                    writeFile(file: '/tmp/gcp-key.json', text: GCP_KEY_TEXT)
+
+                    // The rest of the steps will now succeed because the file exists.
                     sh "gcloud auth activate-service-account --key-file=/tmp/gcp-key.json"
                     sh "gcloud container clusters get-credentials ${GKE_CLUSTER} --zone=${GKE_ZONE}"
-                    // The core deployment command
                     sh "kubectl set image deployment/my-web-app my-first-app=${LOCATION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${IMAGE_NAME}:${BUILD_NUMBER}"
                     sh "rm /tmp/gcp-key.json"
                 }
