@@ -7,8 +7,8 @@ pipeline {
         IMAGE_NAME = 'my-first-app'
         LOCATION = 'asia-south1'
         GCP_CREDENTIAL_ID = 'ultra-sunset-446519-i4'
-        GKE_CLUSTER = 'cluster1' 
-        GKE_ZONE = 'us-central1-a'
+        GKE_CLUSTER = 'my-second-cluster' 
+        GKE_ZONE = 'us-central1-c'
     }
 
     stages {
