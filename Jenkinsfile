@@ -64,7 +64,7 @@ pipeline {
                     // The rest of the steps will now succeed because the file exists.
                     sh "gcloud auth activate-service-account --key-file=/tmp/gcp-key.json"
                     sh "gcloud container clusters get-credentials ${GKE_CLUSTER} --zone=${GKE_ZONE}"
-                    sh "kubectl set image deployment/my-web-app my-first-app=${LOCATION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${IMAGE_NAME}:${BUILD_NUMBER}"
+                    sh "kubectl set image deployment/my-web-app nginx=${LOCATION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${IMAGE_NAME}:${BUILD_NUMBER}"
                     sh "rm /tmp/gcp-key.json"
                 }
             }
