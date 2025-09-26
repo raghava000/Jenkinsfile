@@ -14,6 +14,7 @@ pipeline {
 
     stages {
         // Correctly defined Checkout stage
+	// this is a test comment 2
         stage('Checkout') {
             steps {
                 checkout scm
