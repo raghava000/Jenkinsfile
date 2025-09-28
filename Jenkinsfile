@@ -21,8 +21,8 @@ pipeline {
 
         stage('Prepare Build Files') {
             steps {
+                // This sh block is now clean and contains only valid shell commands.
                 sh '''
-                    // ... (contents are the same as before) ...
                     mkdir -p app
                     echo 'from flask import Flask' > app/app.py
                     echo 'app = Flask(__name__)' >> app/app.py
@@ -44,7 +44,7 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: GCP_CREDENTIAL_ID, variable: 'GCP_KEY_TEXT')]) {
                     writeFile(file: '/tmp/gcp-key.json', text: GCP_KEY_TEXT)
-                    sh "gcloud auth activate-service-account --key-file=/tmp/ggcp-key.json"
+                    sh "gcloud auth activate-service-account --key-file=/tmp/gcp-key.json"
                     sh "gcloud auth configure-docker ${LOCATION}-docker.pkg.dev --quiet"
                     sh "docker build -t ${LOCATION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${IMAGE_NAME}:${BUILD_NUMBER} ./app"
                     sh "docker push ${LOCATION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${IMAGE_NAME}:${BUILD_NUMBER}"
@@ -55,10 +55,7 @@ pipeline {
 
         stage('Deploy and Verify') {
             steps {
-                // --- THIS IS THE FIX ---
-                // We wrap all the complex logic inside a single 'script' block.
                 script {
-                    // This logic sets the target namespace.
                     if (env.BRANCH_NAME == 'main') {
                         TARGET_NAMESPACE = 'prod'
                     } else {
@@ -66,7 +63,6 @@ pipeline {
                     }
                     echo "Attempting deployment to namespace: ${TARGET_NAMESPACE}"
 
-                    // The 'try...catch' block is our safety net.
                     try {
                         withCredentials([string(credentialsId: GCP_CREDENTIAL_ID, variable: 'GCP_KEY_TEXT')]) {
                             writeFile(file: '/tmp/gcp-key.json', text: GCP_KEY_TEXT)
@@ -76,7 +72,6 @@ pipeline {
                             // For the challenge, we deploy a non-existent tag to force a failure.
                             sh "kubectl set image deployment/my-web-app nginx=${LOCATION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${IMAGE_NAME}:${BUILD_NUMBER}-broken --namespace=${TARGET_NAMESPACE}"
                             
-                            // This verification step will fail, triggering the 'catch' block.
                             sh "kubectl rollout status deployment/my-web-app --namespace=${TARGET_NAMESPACE}"
 
                             sh "rm /tmp/gcp-key.json"
@@ -89,13 +84,11 @@ pipeline {
                             sh "gcloud auth activate-service-account --key-file=/tmp/gcp-key.json"
                             sh "gcloud container clusters get-credentials ${GKE_CLUSTER} --zone=${GKE_ZONE}"
 
-                            // The rollback command.
                             sh "kubectl rollout undo deployment/my-web-app --namespace=${TARGET_NAMESPACE}"
                             
                             sh "rm /tmp/gcp-key.json"
                         }
 
-                        // Officially fail the pipeline build.
                         error "Pipeline failed and deployment has been rolled back."
                     }
                 }
