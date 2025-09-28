@@ -26,9 +26,7 @@ jobs:
     - id: 'auth'
       uses: 'google-github-actions/auth@v2'
       with:
-        # IMPORTANT: Replace YOUR_PROJECT_NUMBER below
         workload_identity_provider: 'projects/436847743908/locations/global/workloadIdentityPools/github-pool-v2/providers/github-provider-v2'
-        # IMPORTANT: Replace YOUR_PROJECT_ID below
         service_account: 'github-actions-sa@ultra-sunset-446519-i4.iam.gserviceaccount.com'
 
     # Step 3: Set up the gcloud command-line tool
@@ -43,7 +41,8 @@ jobs:
     - name: Build and Push Docker image
       run: |-
         docker build -t asia-south1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-devops-re-repo/my-first-app:${{ github.sha }} ./app
-        docker push asia-south1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-devops-re-repo/my-first-app:${{ github.sha }
+        docker push asia-south1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-devops-re-repo/my-first-app:${{ github.sha }}
+
     # Step 6: Connect kubectl to your GKE cluster
     - name: Set up GKE credentials
       uses: 'google-github-actions/get-gke-credentials@v2'
