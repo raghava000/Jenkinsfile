@@ -26,8 +26,10 @@ jobs:
     - id: 'auth'
       uses: 'google-github-actions/auth@v2'
       with:
-        workload_identity_provider: 'projects/436847743908/locations/global/workloadIdentityPools/github-pool-v2/providers/github-provider-v2'
-        service_account: 'github-actions-sa@ultra-sunset-446519-i4.iam.gserviceaccount.com'
+        workload_identity_provider: 'projects/436847743908/locations/global/workloadIdentityPools/github-pool-v4/providers/github-provider-v4'
+    # AND UPDATE THIS LINE
+        service_account: 'github-actions-sa-v4@ultra-sunset-446519-i4.iam.gserviceaccount.com'
+
 
     # Step 3: Set up the gcloud command-line tool
     - name: Set up Cloud SDK
