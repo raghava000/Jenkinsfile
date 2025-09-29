@@ -1,58 +1,41 @@
-# The name of our pipeline
 name: Build and Deploy to GKE
 
-# The trigger: This pipeline runs on any push to the 'main' branch
 on:
   push:
     branches: [ "main" ]
 
-# This section enables the secure, keyless authentication
-permissions:
-  contents: 'read'
-  id-token: 'write'
-
 jobs:
-  # The name of our job
   build-and-deploy:
-    # The temporary server ("runner") to use is a standard Ubuntu Linux machine
     runs-on: ubuntu-latest
 
     steps:
-    # Step 1: Check out the source code
     - name: Checkout
       uses: actions/checkout@v4
 
-    # Step 2: Authenticate to Google Cloud using Workload Identity Federation
+    # This is the new, simpler, key-based authentication step.
+    # It reads your secret and uses it to log in.
     - id: 'auth'
       uses: 'google-github-actions/auth@v2'
       with:
-        workload_identity_provider: 'projects/436847743908/locations/global/workloadIdentityPools/github-pool-v4/providers/github-provider-v4'
-    # AND UPDATE THIS LINE
-        service_account: 'github-actions-sa-v4@ultra-sunset-446519-i4.iam.gserviceaccount.com'
+        credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
-
-    # Step 3: Set up the gcloud command-line tool
     - name: Set up Cloud SDK
       uses: 'google-github-actions/setup-gcloud@v2'
 
-    # Step 4: Configure Docker to use gcloud's authentication
     - name: Configure Docker
       run: gcloud auth configure-docker asia-south1-docker.pkg.dev --quiet
 
-    # Step 5: Build and Push the Docker Image
     - name: Build and Push Docker image
       run: |-
         docker build -t asia-south1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-devops-re-repo/my-first-app:${{ github.sha }} ./app
         docker push asia-south1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-devops-re-repo/my-first-app:${{ github.sha }}
-
-    # Step 6: Connect kubectl to your GKE cluster
+    
     - name: Set up GKE credentials
       uses: 'google-github-actions/get-gke-credentials@v2'
       with:
         cluster_name: 'my-second-cluster'
         location: 'us-central1-c'
 
-    # Step 7: Deploy the new image to GKE
     - name: Deploy to GKE
       run: |-
         kubectl set image deployment/my-web-app nginx=asia-south1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-devops-re-repo/my-first-app:${{ github.sha }} --namespace=prod
